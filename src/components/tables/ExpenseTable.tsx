@@ -43,6 +43,7 @@ export interface Expense {
   commentCount: number;
   notes?: string;
   attachments?: string[];
+  budgetIds?: string[];
 }
 
 interface ExpenseTableProps {

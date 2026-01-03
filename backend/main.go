@@ -28,6 +28,7 @@ type Expense struct {
 	CommentCount   int      `json:"commentCount"`
 	Notes          string   `json:"notes,omitempty"`
 	Attachments    []string `json:"attachments,omitempty"`
+	BudgetIds      []string `json:"budgetIds,omitempty"`
 	CreatedAt      string   `json:"createdAt"`
 	UpdatedAt      string   `json:"updatedAt"`
 }
@@ -35,7 +36,9 @@ type Expense struct {
 // Budget represents a budget category
 type Budget struct {
 	ID       string  `json:"id"`
+	Name     string  `json:"name"`
 	Category string  `json:"category"`
+	Month    string  `json:"month"` // Format: "2026-01"
 	Limit    float64 `json:"limit"`
 	Spent    float64 `json:"spent"`
 	Color    string  `json:"color"`

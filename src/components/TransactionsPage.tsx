@@ -3,7 +3,7 @@ import { ExpenseTable, type Expense } from "@/components/tables/ExpenseTable";
 import { ExpenseForm } from "@/components/forms/ExpenseForm";
 import { Button } from "@/components/ui/button";
 import { Plus, X, RefreshCw, Calendar, Tag, Store, User, FileText, Image, Edit, Trash2 } from "lucide-react";
-import { expensesApi } from "@/lib/api";
+import { expensesApi, budgetsApi, type Budget } from "@/lib/api";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 interface Category {
@@ -35,6 +35,7 @@ export function TransactionsPage({
   categories = defaultCategories 
 }: TransactionsPageProps) {
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [budgets, setBudgets] = useState<Budget[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [viewingExpense, setViewingExpense] = useState<Expense | null>(null);
@@ -61,8 +62,19 @@ export function TransactionsPage({
     }
   };
 
+  const fetchBudgets = async () => {
+    try {
+      const data = await budgetsApi.getAll();
+      setBudgets(data);
+    } catch (err) {
+      console.error("Error fetching budgets:", err);
+      setBudgets([]);
+    }
+  };
+
   useEffect(() => {
     fetchExpenses();
+    fetchBudgets();
     
     // Check if we should open the add modal (from navigation)
     const urlParams = new URLSearchParams(window.location.search);
@@ -104,6 +116,7 @@ export function TransactionsPage({
     notes: string;
     isShared: boolean;
     attachments: string[];
+    budgetIds: string[];
   }) => {
     setIsLoading(true);
     setError(null);
@@ -126,6 +139,7 @@ export function TransactionsPage({
           isShared: data.isShared,
           hasAttachments: hasAttachments,
           attachments: data.attachments,
+          budgetIds: data.budgetIds,
         });
         setExpenses(prev => prev.map(e => 
           e.id === editingExpense.id ? updatedExpense : e
@@ -145,6 +159,7 @@ export function TransactionsPage({
           isShared: data.isShared,
           hasAttachments: hasAttachments,
           attachments: data.attachments,
+          budgetIds: data.budgetIds,
           commentCount: 0,
         });
         setExpenses(prev => [newExpense, ...prev]);
@@ -280,6 +295,7 @@ export function TransactionsPage({
             </div>
             <ExpenseForm
               categories={categories}
+              budgets={budgets}
               onSubmit={handleSubmit}
               onCancel={handleCancel}
               initialData={editingExpense ? {
@@ -291,6 +307,7 @@ export function TransactionsPage({
                 notes: editingExpense.notes || "",
                 isShared: editingExpense.isShared,
                 attachments: editingExpense.attachments || [],
+                budgetIds: editingExpense.budgetIds || [],
               } : undefined}
               isLoading={isLoading}
             />

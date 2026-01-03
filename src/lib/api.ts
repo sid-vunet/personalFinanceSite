@@ -18,13 +18,16 @@ export interface Expense {
   commentCount: number;
   notes?: string;
   attachments?: string[];
+  budgetIds?: string[];
   createdAt?: string;
   updatedAt?: string;
 }
 
 export interface Budget {
   id: string;
+  name: string;
   category: string;
+  month: string; // Format: "2026-01"
   limit: number;
   spent: number;
   color: string;

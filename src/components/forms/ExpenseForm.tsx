@@ -15,10 +15,12 @@ interface ExpenseFormData {
   notes: string;
   isShared: boolean;
   attachments: string[];
+  budgetIds: string[];
 }
 
 interface ExpenseFormProps {
   categories: { id: string; name: string; color?: string }[];
+  budgets?: Array<{ id: string; name: string; month: string; color: string }>;
   onSubmit: (data: ExpenseFormData) => void;
   onCancel?: () => void;
   initialData?: Partial<ExpenseFormData>;
@@ -27,6 +29,7 @@ interface ExpenseFormProps {
 
 export function ExpenseForm({
   categories,
+  budgets = [],
   onSubmit,
   onCancel,
   initialData,
@@ -41,6 +44,7 @@ export function ExpenseForm({
     notes: initialData?.notes || "",
     isShared: initialData?.isShared ?? true,
     attachments: initialData?.attachments || [],
+    budgetIds: initialData?.budgetIds || [],
   });
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -94,6 +98,15 @@ export function ExpenseForm({
       ...prev,
       attachments: prev.attachments.filter((_, i) => i !== index),
     }));
+  };
+
+  const toggleBudget = (budgetId: string) => {
+    setFormData(prev => {
+      const budgetIds = prev.budgetIds.includes(budgetId)
+        ? prev.budgetIds.filter(id => id !== budgetId)
+        : [...prev.budgetIds, budgetId];
+      return { ...prev, budgetIds };
+    });
   };
 
   return (
@@ -240,6 +253,44 @@ export function ExpenseForm({
               </div>
             )}
           </div>
+
+          {/* Budget Selection */}
+          {budgets && budgets.length > 0 && (
+            <div className="space-y-2">
+              <Label>Include in Budgets (Optional)</Label>
+              <div className="border border-input rounded-lg p-3 space-y-2 max-h-40 overflow-y-auto">
+                {budgets.map((budget) => (
+                  <div key={budget.id} className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id={`budget-${budget.id}`}
+                      checked={formData.budgetIds.includes(budget.id)}
+                      onChange={() => toggleBudget(budget.id)}
+                      className="h-4 w-4 rounded border-input"
+                    />
+                    <Label 
+                      htmlFor={`budget-${budget.id}`} 
+                      className="font-normal flex-1 flex items-center gap-2 cursor-pointer"
+                    >
+                      <span
+                        className="w-3 h-3 rounded-full"
+                        style={{ backgroundColor: budget.color || "#6b7280" }}
+                      />
+                      <span>{budget.name}</span>
+                      <span className="text-xs text-muted-foreground ml-auto">
+                        {budget.month}
+                      </span>
+                    </Label>
+                  </div>
+                ))}
+                {budgets.length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-2">
+                    No budgets available. Create a budget first.
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
 
           <div className="flex items-center gap-2">
             <input
