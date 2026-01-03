@@ -32,9 +32,6 @@ api.log
 backend/family-finance-api
 
 # Database files
-*.db
-*.db-shm
-*.db-wal
 
 # Uploaded files
 backend/uploads/*

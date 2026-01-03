@@ -14,6 +14,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
   ChevronLeft,
   ChevronRight,
   Search,
@@ -139,23 +141,57 @@ export function ExpenseTable({
   const columns: ColumnDef<Expense>[] = [
     {
       accessorKey: "date",
-      header: ({ column }) => (
-        <div className="flex justify-center">
-          <Button
-            variant="ghost"
-            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-            className="h-auto p-0 hover:bg-transparent"
-          >
-            Date
-            <ArrowUpDown className="ml-2 h-4 w-4" />
-          </Button>
-        </div>
-      ),
-      cell: ({ row }) => (
-        <span className="text-sm text-muted-foreground text-center block">
-          {formatDate(row.original.date)}
-        </span>
-      ),
+      header: ({ column }) => {
+        const sortIndex = sorting.findIndex(s => s.id === "date");
+        const isSorted = column.getIsSorted();
+        return (
+          <div className="flex justify-center items-center gap-1">
+            <Button
+              variant="ghost"
+              onClick={() => {
+                // Multi-sort: hold shift to add to sort
+                const newSorting: SortingState = [...sorting];
+                const existingIndex = newSorting.findIndex(s => s.id === "date");
+                
+                if (existingIndex >= 0) {
+                  // Toggle or remove
+                  if (newSorting[existingIndex].desc) {
+                    newSorting.splice(existingIndex, 1);
+                  } else {
+                    newSorting[existingIndex].desc = true;
+                  }
+                } else {
+                  // Add new sort
+                  newSorting.push({ id: "date", desc: false });
+                }
+                setSorting(newSorting);
+              }}
+              className="h-auto p-0 hover:bg-transparent"
+            >
+              Date
+              {isSorted && (
+                isSorted === "desc" ? <ArrowDown className="ml-1 h-4 w-4" /> : <ArrowUp className="ml-1 h-4 w-4" />
+              )}
+              {!isSorted && <ArrowUpDown className="ml-1 h-4 w-4 opacity-50" />}
+            </Button>
+            {sortIndex >= 0 && (
+              <span className="text-xs bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center">
+                {sortIndex + 1}
+              </span>
+            )}
+          </div>
+        );
+      },
+      cell: ({ row }) => {
+        const date = new Date(row.original.date);
+        const dateStr = formatDate(row.original.date);
+        const timeStr = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+        return (
+          <div className="text-center" title={`${dateStr} at ${timeStr}`}>
+            {dateStr}
+          </div>
+        );
+      },
     },
     {
       accessorKey: "description",
@@ -205,18 +241,44 @@ export function ExpenseTable({
     },
     {
       accessorKey: "amount",
-      header: ({ column }) => (
-        <div className="flex justify-center">
-          <Button
-            variant="ghost"
-            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-            className="h-auto p-0 hover:bg-transparent"
-          >
-            Amount
-            <ArrowUpDown className="ml-2 h-4 w-4" />
-          </Button>
-        </div>
-      ),
+      header: ({ column }) => {
+        const sortIndex = sorting.findIndex(s => s.id === "amount");
+        const isSorted = column.getIsSorted();
+        return (
+          <div className="flex justify-center items-center gap-1">
+            <Button
+              variant="ghost"
+              onClick={() => {
+                const newSorting: SortingState = [...sorting];
+                const existingIndex = newSorting.findIndex(s => s.id === "amount");
+                
+                if (existingIndex >= 0) {
+                  if (newSorting[existingIndex].desc) {
+                    newSorting.splice(existingIndex, 1);
+                  } else {
+                    newSorting[existingIndex].desc = true;
+                  }
+                } else {
+                  newSorting.push({ id: "amount", desc: false });
+                }
+                setSorting(newSorting);
+              }}
+              className="h-auto p-0 hover:bg-transparent"
+            >
+              Amount
+              {isSorted && (
+                isSorted === "desc" ? <ArrowDown className="ml-1 h-4 w-4" /> : <ArrowUp className="ml-1 h-4 w-4" />
+              )}
+              {!isSorted && <ArrowUpDown className="ml-1 h-4 w-4 opacity-50" />}
+            </Button>
+            {sortIndex >= 0 && (
+              <span className="text-xs bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center">
+                {sortIndex + 1}
+              </span>
+            )}
+          </div>
+        );
+      },
       cell: ({ row }) => (
         <span className="font-semibold text-center block">
           {formatCurrency(row.original.amount, row.original.currency)}

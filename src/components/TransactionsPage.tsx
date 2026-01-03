@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { ExpenseTable, type Expense } from "@/components/tables/ExpenseTable";
 import { ExpenseForm } from "@/components/forms/ExpenseForm";
 import { Button } from "@/components/ui/button";
-import { Plus, X, RefreshCw, Calendar, Tag, Store, User, FileText, Image, Edit, Trash2 } from "lucide-react";
-import { expensesApi, budgetsApi, type Budget } from "@/lib/api";
+import { Card, CardContent } from "@/components/ui/card";
+import { Plus, X, RefreshCw, Calendar, Tag, Store, User, FileText, Image, Edit, Trash2, ChevronDown, ChevronRight, TrendingDown, TrendingUp } from "lucide-react";
+import { expensesApi, budgetsApi, incomeApi, type Budget } from "@/lib/api";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 interface Category {
@@ -35,6 +36,7 @@ export function TransactionsPage({
   categories = defaultCategories 
 }: TransactionsPageProps) {
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [incomes, setIncomes] = useState<any[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
@@ -43,14 +45,16 @@ export function TransactionsPage({
   const [isLoading, setIsLoading] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [expandedMonths, setExpandedMonths] = useState<string | null>(null);
 
   // Fetch expenses from API on mount
   const fetchExpenses = async () => {
     try {
       setIsLoading(true);
-      setError(null);
       const data = await expensesApi.getAll();
-      setExpenses(data);
+      // Sort by date descending
+      const sorted = data.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      setExpenses(sorted);
     } catch (err) {
       console.error("Error fetching expenses:", err);
       setError("Failed to load expenses. Make sure the API server is running.");
@@ -72,9 +76,24 @@ export function TransactionsPage({
     }
   };
 
+  const fetchIncomes = async () => {
+    try {
+      const data = await incomeApi.getAll();
+      setIncomes(data);
+    } catch (err) {
+      console.error("Error fetching incomes:", err);
+      setIncomes([]);
+    }
+  };
+
   useEffect(() => {
     fetchExpenses();
     fetchBudgets();
+    fetchIncomes();
+    
+    // Auto-expand current month
+    const currentMonth = new Date().toISOString().slice(0, 7);
+    setExpandedMonths(currentMonth);
     
     // Check if we should open the add modal (from navigation)
     const urlParams = new URLSearchParams(window.location.search);
@@ -180,6 +199,39 @@ export function TransactionsPage({
     setEditingExpense(null);
   };
 
+  // Group expenses by month
+  const expensesByMonth = useMemo(() => {
+    const groups = new Map<string, Expense[]>();
+    expenses.forEach(expense => {
+      const monthKey = expense.date.slice(0, 7); // YYYY-MM
+      if (!groups.has(monthKey)) {
+        groups.set(monthKey, []);
+      }
+      groups.get(monthKey)!.push(expense);
+    });
+    // Sort months descending
+    return new Map([...groups.entries()].sort((a, b) => b[0].localeCompare(a[0])));
+  }, [expenses]);
+
+  // Calculate totals for current month
+  const currentMonth = new Date().toISOString().slice(0, 7);
+  const currentMonthExpenses = expensesByMonth.get(currentMonth) || [];
+  const currentMonthTotal = currentMonthExpenses.reduce((sum, e) => sum + e.amount, 0);
+  const currentMonthIncomes = incomes.filter(i => i.date?.startsWith(currentMonth));
+  const currentMonthIncomeTotal = currentMonthIncomes.reduce((sum, i) => sum + i.amount, 0);
+  const currentMonthNet = currentMonthIncomeTotal - currentMonthTotal;
+
+  const toggleMonth = (monthKey: string) => {
+    setExpandedMonths(prev => prev === monthKey ? null : monthKey);
+  };
+
+  const getMonthLabel = (monthKey: string) => {
+    const [year, month] = monthKey.split('-');
+    const date = new Date(parseInt(year), parseInt(month) - 1);
+    const monthName = date.toLocaleString('default', { month: 'long' });
+    return `${monthName} ${year}`;
+  };
+
   // Show loading state while fetching from API
   if (!isHydrated) {
     return (
@@ -231,7 +283,10 @@ export function TransactionsPage({
           <Button 
             variant="ghost" 
             size="sm" 
-            onClick={fetchExpenses}
+            onClick={() => {
+              fetchExpenses();
+              fetchIncomes();
+            }}
             disabled={isLoading}
           >
             <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
@@ -243,11 +298,115 @@ export function TransactionsPage({
         </Button>
       </div>
 
-      {/* Expense Table or Empty State */}
-      <div className="rounded-xl border border-border bg-card text-card-foreground shadow-sm">
-        <div className="p-6">
-          {expenses.length === 0 ? (
-            <div className="text-center py-12">
+      {/* Month-grouped Transactions */}
+      <div className="space-y-4">
+        {Array.from(expensesByMonth.entries()).map(([monthKey, monthExpenses]) => {
+          const isExpanded = expandedMonths === monthKey;
+          const isCurrentMonth = monthKey === currentMonth;
+          const monthTotal = monthExpenses.reduce((sum, e) => sum + e.amount, 0);
+          const monthIncomes = incomes.filter(i => i.date?.startsWith(monthKey));
+          const monthIncomeTotal = monthIncomes.reduce((sum, i) => sum + i.amount, 0);
+          const monthNet = monthIncomeTotal - monthTotal;
+          
+          return (
+            <div key={monthKey} className={`rounded-xl border-2 ${isCurrentMonth ? 'border-primary' : 'border-border'} bg-card text-card-foreground shadow-sm`}>
+              {/* Month Header with Integrated Summary */}
+              <button
+                onClick={() => toggleMonth(monthKey)}
+                className="w-full p-6 hover:bg-muted/50 transition-colors"
+              >
+                <div className="flex items-start gap-4">
+                  {isExpanded ? (
+                    <ChevronDown className="h-5 w-5 mt-1 flex-shrink-0" />
+                  ) : (
+                    <ChevronRight className="h-5 w-5 mt-1 flex-shrink-0" />
+                  )}
+                  
+                  <div className="flex-1">
+                    {/* Month Title Row */}
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-xl font-bold">
+                          {getMonthLabel(monthKey)}
+                        </h3>
+                        {isCurrentMonth && (
+                          <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded font-medium">
+                            Current
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        {monthExpenses.length} transaction{monthExpenses.length !== 1 ? 's' : ''}
+                      </p>
+                    </div>
+                    
+                    {/* Metrics Grid */}
+                    <div className="grid grid-cols-3 gap-4 mb-4">
+                      <div>
+                        <p className="text-xs text-muted-foreground flex items-center gap-1 mb-1">
+                          <TrendingUp className="h-3 w-3 text-green-500" />
+                          Income
+                        </p>
+                        <p className="text-lg font-bold text-green-600">
+                          ₹{monthIncomeTotal.toLocaleString('en-IN')}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground flex items-center gap-1 mb-1">
+                          <TrendingDown className="h-3 w-3 text-red-500" />
+                          Expenses
+                        </p>
+                        <p className="text-lg font-bold text-red-600">
+                          ₹{monthTotal.toLocaleString('en-IN')}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">Net</p>
+                        <p className={`text-lg font-bold ${monthNet >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          ₹{Math.abs(monthNet).toLocaleString('en-IN')}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    {/* Mini Trend Chart */}
+                    <div className="h-12 flex items-end gap-1">
+                      {monthExpenses.slice(0, 30).map((expense, idx) => {
+                        const maxAmount = Math.max(...monthExpenses.map(e => e.amount));
+                        const height = maxAmount > 0 ? (expense.amount / maxAmount) * 100 : 0;
+                        return (
+                          <div 
+                            key={idx}
+                            className="flex-1 bg-primary/60 rounded-t hover:bg-primary transition-colors"
+                            style={{ height: `${height}%`, minHeight: '2px' }}
+                            title={`${formatDate(expense.date)}: ₹${expense.amount.toLocaleString('en-IN')}`}
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </button>
+
+              {/* Month Transactions */}
+              {isExpanded && (
+                <div className="border-t p-6">
+                  <ExpenseTable 
+                    data={monthExpenses}
+                    categories={categories}
+                    onEdit={handleEditExpense}
+                    onDelete={handleDeleteExpense}
+                    onRowClick={(expense) => setViewingExpense(expense)}
+                  />
+                </div>
+              )}
+            </div>
+          );
+        })}
+        
+        {/* Empty State */}
+        {expenses.length === 0 && (
+          <div className="rounded-xl border border-border bg-card text-card-foreground shadow-sm">
+            <div className="p-12 text-center">
               <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
                 <Plus className="h-8 w-8 text-muted-foreground" />
               </div>
@@ -260,16 +419,8 @@ export function TransactionsPage({
                 Add Your First Expense
               </Button>
             </div>
-          ) : (
-            <ExpenseTable 
-              data={expenses}
-              categories={categories}
-              onEdit={handleEditExpense}
-              onDelete={handleDeleteExpense}
-              onRowClick={(expense) => setViewingExpense(expense)}
-            />
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* Modal Overlay */}
