@@ -1,0 +1,17 @@
+---
+import DashboardLayout from "@/layouts/DashboardLayout.astro";
+import { IncomePage } from "@/components/IncomePage";
+---
+
+<DashboardLayout title="Income" currentPath="/income">
+  <div class="space-y-6">
+    <div class="flex items-center justify-between">
+      <div>
+        <h1 class="text-3xl font-bold tracking-tight">Income</h1>
+        <p class="text-muted-foreground">Track your salary, bonuses, and other income sources</p>
+      </div>
+    </div>
+
+    <IncomePage client:load />
+  </div>
+</DashboardLayout>

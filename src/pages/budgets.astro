@@ -1,0 +1,117 @@
+---
+import DashboardLayout from "@/layouts/DashboardLayout.astro";
+import { BudgetComparisonChart } from "@/components/charts/BudgetComparisonChart";
+
+// Empty data - ready for fresh entries
+const budgets: { id: string; category: string; budget: number; spent: number; color: string }[] = [];
+
+const totalBudget = budgets.reduce((acc, b) => acc + b.budget, 0);
+const totalSpent = budgets.reduce((acc, b) => acc + b.spent, 0);
+const overallPercentage = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
+
+const chartData = budgets.map(b => ({
+  category: b.category,
+  budget: b.budget,
+  spent: b.spent,
+}));
+---
+
+<DashboardLayout title="Budgets" currentPath="/budgets">
+  <div class="space-y-6">
+    {budgets.length === 0 ? (
+      <!-- Empty State -->
+      <div class="rounded-xl border border-border bg-card text-card-foreground shadow-sm">
+        <div class="p-12 text-center">
+          <div class="h-16 w-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
+            <span class="text-3xl">💰</span>
+          </div>
+          <h3 class="text-xl font-semibold mb-2">No budgets set up yet</h3>
+          <p class="text-muted-foreground mb-6 max-w-md mx-auto">
+            Create budget limits for your expense categories to track your spending and stay on top of your finances.
+          </p>
+          <button class="inline-flex items-center justify-center rounded-md text-sm font-medium h-10 px-4 py-2 bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
+            Create Your First Budget
+          </button>
+        </div>
+      </div>
+    ) : (
+      <>
+        <!-- Overall Budget Summary -->
+        <div class="rounded-xl border border-border bg-card text-card-foreground shadow-sm">
+          <div class="flex flex-col space-y-1.5 p-6">
+            <h3 class="text-2xl font-semibold leading-none tracking-tight">Monthly Budget</h3>
+            <p class="text-sm text-muted-foreground">
+              ₹{totalSpent.toLocaleString("en-IN")} of ₹{totalBudget.toLocaleString("en-IN")} spent
+            </p>
+          </div>
+          <div class="p-6 pt-0">
+            <div class="relative h-4 w-full overflow-hidden rounded-full bg-secondary">
+              <div class="h-full bg-primary transition-all" style={`width: ${Math.min(overallPercentage, 100)}%`}></div>
+            </div>
+            <p class="text-sm text-muted-foreground mt-2">
+              {overallPercentage.toFixed(1)}% of monthly budget used • 
+              ₹{(totalBudget - totalSpent).toLocaleString("en-IN")} remaining
+            </p>
+          </div>
+        </div>
+
+        <!-- Budget Chart -->
+        <div class="rounded-xl border border-border bg-card text-card-foreground shadow-sm">
+          <div class="p-6">
+            <BudgetComparisonChart 
+              client:visible
+              data={chartData}
+              title="Budget vs Actual Spending"
+              height="400px"
+            />
+          </div>
+        </div>
+
+        <!-- Category Budgets -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {budgets.map((budget) => {
+            const percentage = (budget.spent / budget.budget) * 100;
+            const isOverBudget = budget.spent > budget.budget;
+            const isNearLimit = percentage >= 80 && !isOverBudget;
+            
+            return (
+              <div class="rounded-xl border border-border bg-card text-card-foreground shadow-sm">
+                <div class="p-6">
+                  <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center gap-2">
+                      <div 
+                        class="h-3 w-3 rounded-full" 
+                        style={`background-color: ${budget.color}`}
+                      />
+                      <span class="font-medium">{budget.category}</span>
+                    </div>
+                    <span class={`text-sm font-medium ${
+                      isOverBudget ? "text-red-600" : isNearLimit ? "text-yellow-600" : "text-muted-foreground"
+                    }`}>
+                      {percentage.toFixed(0)}%
+                    </span>
+                  </div>
+                  <div class={`relative h-2 w-full overflow-hidden rounded-full bg-secondary`}>
+                    <div 
+                      class={`h-full transition-all ${isOverBudget ? "bg-red-500" : isNearLimit ? "bg-yellow-500" : "bg-primary"}`}
+                      style={`width: ${Math.min(percentage, 100)}%`}
+                    ></div>
+                  </div>
+                  <div class="flex items-center justify-between mt-2 text-sm text-muted-foreground">
+                    <span>₹{budget.spent.toLocaleString("en-IN")}</span>
+                    <span>₹{budget.budget.toLocaleString("en-IN")}</span>
+                  </div>
+                  {isOverBudget && (
+                    <p class="text-xs text-red-600 mt-1">
+                      Over by ₹{(budget.spent - budget.budget).toLocaleString("en-IN")}
+                    </p>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </>
+    )}
+  </div>
+</DashboardLayout>

@@ -1,0 +1,30 @@
+---
+import DashboardLayout from "@/layouts/DashboardLayout.astro";
+import { SettingsPage } from "@/components/SettingsPage";
+
+// Mock data
+const familyMembers = [
+  { id: "1", name: "Sidharth", email: "sidharthansidhu@gmail.com", phone: "9894277999", role: "Admin", isApproved: true },
+  { id: "2", name: "Family Member 2", email: "member2@gmail.com", phone: "9876543210", role: "Member", isApproved: true },
+];
+
+const categories = [
+  { id: "1", name: "Groceries", icon: "🛒", color: "#22c55e" },
+  { id: "2", name: "Dining", icon: "🍽️", color: "#ef4444" },
+  { id: "3", name: "Utilities", icon: "💡", color: "#f59e0b" },
+  { id: "4", name: "Transport", icon: "🚗", color: "#3b82f6" },
+  { id: "5", name: "Entertainment", icon: "🎬", color: "#8b5cf6" },
+  { id: "6", name: "Shopping", icon: "🛍️", color: "#ec4899" },
+  { id: "7", name: "Healthcare", icon: "🏥", color: "#14b8a6" },
+  { id: "8", name: "Education", icon: "📚", color: "#6366f1" },
+  { id: "9", name: "Insurance", icon: "🛡️", color: "#8b5cf6" },
+];
+---
+
+<DashboardLayout title="Settings" currentPath="/settings">
+  <SettingsPage 
+    client:load
+    familyMembers={familyMembers}
+    categories={categories}
+  />
+</DashboardLayout>

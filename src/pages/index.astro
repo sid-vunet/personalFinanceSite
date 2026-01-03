@@ -1,0 +1,8 @@
+---
+import DashboardLayout from "@/layouts/DashboardLayout.astro";
+import { DashboardPage } from "@/components/DashboardPage";
+---
+
+<DashboardLayout title="Dashboard" currentPath="/">
+  <DashboardPage client:load />
+</DashboardLayout>

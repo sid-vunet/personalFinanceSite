@@ -1,0 +1,14 @@
+---
+import DashboardLayout from "@/layouts/DashboardLayout.astro";
+import { TransactionsPage } from "@/components/TransactionsPage";
+
+// Empty data - ready for fresh entries
+const expenses: any[] = [];
+---
+
+<DashboardLayout title="Transactions" currentPath="/transactions">
+  <TransactionsPage 
+    client:load
+    initialExpenses={expenses}
+  />
+</DashboardLayout>

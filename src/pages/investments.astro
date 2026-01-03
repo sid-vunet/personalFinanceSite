@@ -1,0 +1,164 @@
+---
+import DashboardLayout from "@/layouts/DashboardLayout.astro";
+
+// Empty data - ready for fresh entries
+const investments: { 
+  id: string; 
+  name: string; 
+  type: string;
+  purchaseValue: number;
+  currentValue: number;
+  units: number | null;
+  purchaseDate: string;
+  maturityDate?: string;
+  premium?: number;
+  coverage?: number;
+  returns: number | null;
+  color: string;
+}[] = [];
+
+const totalInvested = investments.reduce((acc, i) => acc + i.purchaseValue, 0);
+const totalCurrentValue = investments.reduce((acc, i) => acc + i.currentValue, 0);
+const totalReturns = totalCurrentValue - totalInvested;
+const overallReturnsPercentage = totalInvested > 0 ? ((totalReturns / totalInvested) * 100).toFixed(2) : "0.00";
+
+const investmentsByType = investments.reduce((acc, inv) => {
+  if (!acc[inv.type]) {
+    acc[inv.type] = { invested: 0, current: 0, count: 0 };
+  }
+  acc[inv.type].invested += inv.purchaseValue;
+  acc[inv.type].current += inv.currentValue;
+  acc[inv.type].count += 1;
+  return acc;
+}, {} as Record<string, { invested: number; current: number; count: number }>);
+---
+
+<DashboardLayout title="Investments" currentPath="/investments">
+  <div class="space-y-6">
+    {investments.length === 0 ? (
+      <!-- Empty State -->
+      <div class="rounded-xl border border-border bg-card text-card-foreground shadow-sm">
+        <div class="p-12 text-center">
+          <div class="h-16 w-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
+            <span class="text-3xl">📈</span>
+          </div>
+          <h3 class="text-xl font-semibold mb-2">No investments tracked yet</h3>
+          <p class="text-muted-foreground mb-6 max-w-md mx-auto">
+            Add your stocks, mutual funds, fixed deposits, and insurance policies to track your complete investment portfolio.
+          </p>
+          <button class="inline-flex items-center justify-center rounded-md text-sm font-medium h-10 px-4 py-2 bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
+            Add Your First Investment
+          </button>
+        </div>
+      </div>
+    ) : (
+      <>
+        <!-- Portfolio Summary -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="rounded-xl border border-border bg-card text-card-foreground shadow-sm">
+            <div class="p-6">
+              <p class="text-sm text-muted-foreground">Total Invested</p>
+              <p class="text-2xl font-bold">₹{totalInvested.toLocaleString("en-IN")}</p>
+            </div>
+          </div>
+          <div class="rounded-xl border border-border bg-card text-card-foreground shadow-sm">
+            <div class="p-6">
+              <p class="text-sm text-muted-foreground">Current Value</p>
+              <p class="text-2xl font-bold">₹{totalCurrentValue.toLocaleString("en-IN")}</p>
+            </div>
+          </div>
+          <div class="rounded-xl border border-border bg-card text-card-foreground shadow-sm">
+            <div class="p-6">
+              <p class="text-sm text-muted-foreground">Total Returns</p>
+              <p class={`text-2xl font-bold ${totalReturns >= 0 ? "text-green-600" : "text-red-600"}`}>
+                {totalReturns >= 0 ? "+" : ""}₹{totalReturns.toLocaleString("en-IN")} ({overallReturnsPercentage}%)
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Investments by Type -->
+        <div class="rounded-xl border border-border bg-card text-card-foreground shadow-sm">
+          <div class="flex flex-col space-y-1.5 p-6">
+            <h3 class="text-2xl font-semibold leading-none tracking-tight">Portfolio Allocation</h3>
+          </div>
+          <div class="p-6 pt-0">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {Object.entries(investmentsByType).map(([type, data]) => (
+                <div class="text-center p-4 rounded-lg bg-muted/50">
+                  <p class="text-sm text-muted-foreground">{type}</p>
+                  <p class="text-lg font-semibold">₹{data.current.toLocaleString("en-IN")}</p>
+                  <p class="text-xs text-muted-foreground">{data.count} holdings</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <!-- Investment List -->
+        <div class="rounded-xl border border-border bg-card text-card-foreground shadow-sm">
+          <div class="flex flex-col space-y-1.5 p-6">
+            <h3 class="text-2xl font-semibold leading-none tracking-tight">All Investments</h3>
+            <p class="text-sm text-muted-foreground">Track your stocks, mutual funds, and other assets</p>
+          </div>
+          <div class="p-6 pt-0">
+            <div class="space-y-4">
+              {investments.map((investment) => {
+                const returns = investment.currentValue - investment.purchaseValue;
+                const returnsPercentage = ((returns / investment.purchaseValue) * 100).toFixed(2);
+                const isPositive = returns >= 0;
+                
+                return (
+                  <div class="flex items-center justify-between p-4 rounded-lg border border-border hover:bg-muted/30 transition-colors">
+                    <div class="flex items-center gap-4">
+                      <div 
+                        class="h-10 w-10 rounded-full flex items-center justify-center text-white text-sm font-medium"
+                        style={`background-color: ${investment.color}`}
+                      >
+                        {investment.name.charAt(0)}
+                      </div>
+                      <div>
+                        <p class="font-medium">{investment.name}</p>
+                        <p class="text-sm text-muted-foreground">
+                          {investment.type}
+                          {investment.units && ` • ${investment.units} units`}
+                        </p>
+                      </div>
+                    </div>
+                    <div class="text-right">
+                      <p class="font-semibold">₹{investment.currentValue.toLocaleString("en-IN")}</p>
+                      {investment.returns !== null && (
+                        <p class={`text-sm ${isPositive ? "text-green-600" : "text-red-600"}`}>
+                          {isPositive ? "+" : ""}₹{returns.toLocaleString("en-IN")} ({returnsPercentage}%)
+                        </p>
+                      )}
+                      {investment.type === "Insurance" && investment.coverage && (
+                        <p class="text-sm text-muted-foreground">
+                          Cover: ₹{investment.coverage.toLocaleString("en-IN")}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </>
+    )}
+
+    <!-- Add New Investment (always visible) -->
+    <div class="rounded-xl border border-dashed border-border bg-card text-card-foreground shadow-sm">
+      <div class="p-6 flex flex-col items-center justify-center py-12">
+        <div class="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-4">
+          <span class="text-2xl">+</span>
+        </div>
+        <h3 class="font-medium text-lg mb-1">Add Investment</h3>
+        <p class="text-sm text-muted-foreground mb-4">Track a new stock, fund, or asset</p>
+        <button class="inline-flex items-center justify-center rounded-md text-sm font-medium h-10 px-4 py-2 bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
+          Add Investment
+        </button>
+      </div>
+    </div>
+  </div>
+</DashboardLayout>
