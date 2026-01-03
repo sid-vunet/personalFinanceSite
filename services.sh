@@ -39,12 +39,12 @@ print_error() {
 
 # Check if a port is in use
 is_port_in_use() {
-    lsof -i ":$1" >/dev/null 2>&1
+    lsof -i ":$1" -sTCP:LISTEN >/dev/null 2>&1
 }
 
 # Get PID of process on a port
 get_pid_on_port() {
-    lsof -t -i ":$1" 2>/dev/null | head -1
+    lsof -t -i ":$1" -sTCP:LISTEN 2>/dev/null | head -1
 }
 
 # Check API status
