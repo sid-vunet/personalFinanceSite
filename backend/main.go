@@ -35,13 +35,14 @@ type Expense struct {
 
 // Budget represents a budget category
 type Budget struct {
-	ID       string  `json:"id"`
-	Name     string  `json:"name"`
-	Category string  `json:"category"`
-	Month    string  `json:"month"` // Format: "2026-01"
-	Limit    float64 `json:"limit"`
-	Spent    float64 `json:"spent"`
-	Color    string  `json:"color"`
+	ID          string  `json:"id"`
+	Name        string  `json:"name"`
+	Category    string  `json:"category"`
+	Month       string  `json:"month"` // Format: "2026-01"
+	Limit       float64 `json:"limit"`
+	Spent       float64 `json:"spent"`
+	Color       string  `json:"color"`
+	IsRecurring bool    `json:"isRecurring"`
 }
 
 // Goal represents a financial goal
@@ -340,8 +341,11 @@ func deleteExpense(w http.ResponseWriter, r *http.Request) {
 func getBudgets(w http.ResponseWriter, r *http.Request) {
 	var budgets []Budget
 	err := db.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte(budgetsBucket))
-		return b.ForEach(func(k, v []byte) error {
+		budgetBucket := tx.Bucket([]byte(budgetsBucket))
+		expenseBucket := tx.Bucket([]byte(expensesBucket))
+
+		// First collect all budgets
+		err := budgetBucket.ForEach(func(k, v []byte) error {
 			var budget Budget
 			if err := json.Unmarshal(v, &budget); err != nil {
 				return err
@@ -349,6 +353,30 @@ func getBudgets(w http.ResponseWriter, r *http.Request) {
 			budgets = append(budgets, budget)
 			return nil
 		})
+		if err != nil {
+			return err
+		}
+
+		// Calculate spent amount for each budget from expenses
+		for i := range budgets {
+			budgets[i].Spent = 0
+			expenseBucket.ForEach(func(k, v []byte) error {
+				var expense Expense
+				if err := json.Unmarshal(v, &expense); err != nil {
+					return nil // Skip malformed expenses
+				}
+				// Check if this expense is linked to this budget
+				for _, budgetID := range expense.BudgetIds {
+					if budgetID == budgets[i].ID {
+						budgets[i].Spent += expense.Amount
+						break
+					}
+				}
+				return nil
+			})
+		}
+
+		return nil
 	})
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, err.Error())
@@ -412,8 +440,52 @@ func deleteBudget(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id := vars["id"]
 	err := db.Update(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte(budgetsBucket))
-		return b.Delete([]byte(id))
+		budgetBucket := tx.Bucket([]byte(budgetsBucket))
+		expenseBucket := tx.Bucket([]byte(expensesBucket))
+
+		// Delete the budget
+		if err := budgetBucket.Delete([]byte(id)); err != nil {
+			return err
+		}
+
+		// Remove this budget ID from all expenses
+		return expenseBucket.ForEach(func(k, v []byte) error {
+			var expense Expense
+			if err := json.Unmarshal(v, &expense); err != nil {
+				return nil // Skip malformed expenses
+			}
+
+			// Check if this expense has the budget ID
+			hasThisBudget := false
+			for _, budgetID := range expense.BudgetIds {
+				if budgetID == id {
+					hasThisBudget = true
+					break
+				}
+			}
+
+			if hasThisBudget {
+				// Remove the budget ID from the slice
+				newBudgetIds := make([]string, 0, len(expense.BudgetIds)-1)
+				for _, budgetID := range expense.BudgetIds {
+					if budgetID != id {
+						newBudgetIds = append(newBudgetIds, budgetID)
+					}
+				}
+				expense.BudgetIds = newBudgetIds
+
+				// Update the expense
+				data, err := json.Marshal(expense)
+				if err != nil {
+					return err
+				}
+				if err := expenseBucket.Put(k, data); err != nil {
+					return err
+				}
+			}
+
+			return nil
+		})
 	})
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, err.Error())

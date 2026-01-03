@@ -31,6 +31,7 @@ export interface Budget {
   limit: number;
   spent: number;
   color: string;
+  isRecurring: boolean;
 }
 
 export interface Goal {
