@@ -37,8 +37,8 @@ type Expense struct {
 type Budget struct {
 	ID          string  `json:"id"`
 	Name        string  `json:"name"`
-	Category    string  `json:"category"`
-	Month       string  `json:"month"` // Format: "2026-01"
+	Category    string  `json:"category,omitempty"` // Optional - budget can span multiple categories
+	Month       string  `json:"month"`              // Format: "2026-01"
 	Limit       float64 `json:"limit"`
 	Spent       float64 `json:"spent"`
 	Color       string  `json:"color"`

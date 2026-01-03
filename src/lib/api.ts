@@ -26,7 +26,7 @@ export interface Expense {
 export interface Budget {
   id: string;
   name: string;
-  category: string;
+  category?: string; // Optional - budget can span multiple categories
   month: string; // Format: "2026-01"
   limit: number;
   spent: number;

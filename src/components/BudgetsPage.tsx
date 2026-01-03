@@ -4,8 +4,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, X, Edit, Trash2, RefreshCw } from "lucide-react";
-import { budgetsApi, type Budget } from "@/lib/api";
+import { budgetsApi, expensesApi, type Budget, type Expense } from "@/lib/api";
 import { BudgetComparisonChart } from "@/components/charts/BudgetComparisonChart";
+import { DailySpendingByCategory } from "@/components/charts/DailySpendingByCategory";
+import { CategoryPieChartForBudget } from "@/components/charts/CategoryPieChartForBudget";
 
 interface BudgetFormData {
   name: string;
@@ -31,6 +33,7 @@ const defaultCategories = [
 
 export function BudgetsPage() {
   const [budgets, setBudgets] = useState<Budget[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -52,8 +55,12 @@ export function BudgetsPage() {
     try {
       setIsLoading(true);
       setError(null);
-      const data = await budgetsApi.getAll();
-      setBudgets(data);
+      const [budgetsData, expensesData] = await Promise.all([
+        budgetsApi.getAll(),
+        expensesApi.getAll(),
+      ]);
+      setBudgets(budgetsData);
+      setExpenses(expensesData);
     } catch (err) {
       console.error("Error fetching budgets:", err);
       setError("Failed to load budgets. Make sure the API server is running.");
@@ -172,6 +179,51 @@ export function BudgetsPage() {
     budget: b.limit,
     spent: b.spent,
   }));
+
+  // Calculate daily spending by category for all budget expenses
+  const budgetExpenseIds = new Set(
+    expenses
+      .filter((e) => e.budgetIds && e.budgetIds.length > 0)
+      .map((e) => e.id)
+  );
+  
+  const budgetExpenses = expenses.filter((e) =>
+    e.budgetIds && e.budgetIds.length > 0
+  );
+
+  // Group by date and category
+  const dailySpendingMap = new Map<string, { [category: string]: number }>();
+  budgetExpenses.forEach((expense) => {
+    const date = expense.date;
+    if (!dailySpendingMap.has(date)) {
+      dailySpendingMap.set(date, {});
+    }
+    const dayData = dailySpendingMap.get(date)!;
+    const category = expense.category || "Other";
+    dayData[category] = (dayData[category] || 0) + expense.amount;
+  });
+
+  const dailySpendingData = Array.from(dailySpendingMap.entries())
+    .map(([date, categories]) => ({ date, categories }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  // Calculate category totals for pie chart
+  const categoryTotals = new Map<string, number>();
+  budgetExpenses.forEach((expense) => {
+    const category = expense.category || "Other";
+    categoryTotals.set(category, (categoryTotals.get(category) || 0) + expense.amount);
+  });
+
+  const categoryPieData = Array.from(categoryTotals.entries()).map(
+    ([category, value]) => {
+      const categoryInfo = defaultCategories.find((c) => c.id === category);
+      return {
+        category,
+        value,
+        color: categoryInfo?.color,
+      };
+    }
+  );
 
   if (!isHydrated) {
     return (
@@ -356,6 +408,32 @@ export function BudgetsPage() {
             </CardContent>
           </Card>
 
+          {/* Daily Spending by Category */}
+          {dailySpendingData.length > 0 && (
+            <Card>
+              <CardContent className="pt-6">
+                <DailySpendingByCategory
+                  data={dailySpendingData}
+                  title="Daily Spending by Category (Budget Expenses)"
+                  height="400px"
+                />
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Category Distribution Pie Chart */}
+          {categoryPieData.length > 0 && (
+            <Card>
+              <CardContent className="pt-6">
+                <CategoryPieChartForBudget
+                  data={categoryPieData}
+                  title="Total Spending by Category (Budget Expenses)"
+                  height="400px"
+                />
+              </CardContent>
+            </Card>
+          )}
+
           {/* Category Budgets Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {budgets.map((budget) => {
@@ -476,22 +554,24 @@ export function BudgetsPage() {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="category">Category</Label>
+                      <Label htmlFor="category">Category (Optional)</Label>
                       <select
                         id="category"
                         name="category"
                         value={formData.category}
                         onChange={handleChange}
                         className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                        required
                       >
-                        <option value="">Select category</option>
+                        <option value="">No specific category</option>
                         {defaultCategories.map((cat) => (
                           <option key={cat.id} value={cat.id}>
                             {cat.name}
                           </option>
                         ))}
                       </select>
+                      <p className="text-xs text-muted-foreground">
+                        Leave blank for multi-category budgets
+                      </p>
                     </div>
 
                     <div className="space-y-2">

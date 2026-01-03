@@ -1,24 +1,32 @@
 import React, { useState, useEffect } from "react";
-import { dashboardApi, type DashboardData } from "@/lib/api";
+import { dashboardApi, expensesApi, type DashboardData, type Expense } from "@/lib/api";
 import { DashboardWidgets } from "@/components/dashboard/DashboardWidgets";
 import { RecentTransactions } from "@/components/dashboard/RecentTransactions";
 import { BillReminders } from "@/components/dashboard/BillReminders";
 import { CategoryPieChart } from "@/components/charts/CategoryPieChart";
 import { SpendingTrendChart } from "@/components/charts/SpendingTrendChart";
+import { DailySpendingByCategory } from "@/components/charts/DailySpendingByCategory";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { RefreshCw, Plus, TrendingUp, TrendingDown } from "lucide-react";
 
 export function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [budgetFilter, setBudgetFilter] = useState<"all" | "with" | "without">("all");
 
   const fetchDashboard = async () => {
     try {
       setIsLoading(true);
       setError(null);
-      const dashboardData = await dashboardApi.get();
+      const [dashboardData, expensesData] = await Promise.all([
+        dashboardApi.get(),
+        expensesApi.getAll(),
+      ]);
       setData(dashboardData);
+      setExpenses(expensesData);
     } catch (err) {
       console.error("Error fetching dashboard:", err);
       setError("Failed to load dashboard. Make sure the API server is running.");
@@ -243,6 +251,59 @@ export function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* Daily Spending by Category with Budget Filter */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold">Daily Spending by Category</h3>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">Filter:</span>
+              <select
+                value={budgetFilter}
+                onChange={(e) => setBudgetFilter(e.target.value as "all" | "with" | "without")}
+                className="flex h-9 rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <option value="all">All Expenses</option>
+                <option value="with">With Budget</option>
+                <option value="without">Without Budget</option>
+              </select>
+            </div>
+          </div>
+          <DailySpendingByCategory
+            data={getDailySpendingData(expenses, budgetFilter)}
+            title=""
+            height="400px"
+          />
+        </CardContent>
+      </Card>
     </div>
   );
+}
+
+// Helper function to compute daily spending data
+function getDailySpendingData(
+  expenses: Expense[],
+  filter: "all" | "with" | "without"
+) {
+  const filtered = expenses.filter((e) => {
+    if (filter === "with") return e.budgetIds && e.budgetIds.length > 0;
+    if (filter === "without") return !e.budgetIds || e.budgetIds.length === 0;
+    return true;
+  });
+
+  const dailyMap = new Map<string, { [category: string]: number }>();
+  filtered.forEach((expense) => {
+    const date = expense.date;
+    if (!dailyMap.has(date)) {
+      dailyMap.set(date, {});
+    }
+    const dayData = dailyMap.get(date)!;
+    const category = expense.category || "Other";
+    dayData[category] = (dayData[category] || 0) + expense.amount;
+  });
+
+  return Array.from(dailyMap.entries())
+    .map(([date, categories]) => ({ date, categories }))
+    .sort((a, b) => a.date.localeCompare(b.date));
 }
